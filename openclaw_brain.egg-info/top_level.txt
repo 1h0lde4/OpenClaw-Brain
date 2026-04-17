@@ -1,0 +1,5 @@
+core
+install
+interface
+learning
+modules

@@ -1,0 +1,3 @@
+[console_scripts]
+openclaw = interface.cli:cli
+openclaw-start = main:main

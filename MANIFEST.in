@@ -1,0 +1,11 @@
+include README.md
+include LICENSE
+include CHANGELOG.md
+include version.txt
+include requirements.txt
+recursive-include config *.toml *.yaml
+recursive-include data *.json
+recursive-include interface/web *.html *.css *.js
+recursive-exclude tests *
+recursive-exclude .git *
+recursive-exclude .github *
