@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # setup.sh — First-time setup script for OpenClaw
-# Run once after cloning the repo.
-# Usage: bash setup.sh
+# Usage:
+#   bash setup.sh
+# Optional (non-interactive):
+#   TRAIN=y VOICE=n bash setup.sh
 
 set -euo pipefail
 
@@ -20,10 +22,20 @@ echo "  ║   OpenClaw First-Time Setup   ║"
 echo "  ╚═══════════════════════════════╝"
 echo ""
 
-# 1. Python version check
-PY=$(python3 --version 2>&1 | grep -oP '\d+\.\d+' | head -1)
+# 0. Check prerequisites
+command -v python3 >/dev/null || err "python3 is not installed"
+command -v pip >/dev/null || warn "pip not found globally (will rely on venv)"
+
+# Optional but recommended
+if ! command -v node >/dev/null; then
+    warn "Node.js not installed (recommended for full OpenClaw ecosystem)"
+fi
+
+# 1. Python version check (robust)
+PY=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 MAJOR=$(echo "$PY" | cut -d. -f1)
 MINOR=$(echo "$PY" | cut -d. -f2)
+
 if [[ "$MAJOR" -lt 3 || ( "$MAJOR" -eq 3 && "$MINOR" -lt 11 ) ]]; then
     err "Python 3.11+ required. Found: $PY"
 fi
@@ -32,54 +44,71 @@ ok "Python $PY ✓"
 # 2. Virtual environment
 if [[ ! -d ".venv" ]]; then
     ok "Creating virtual environment..."
-    python3 -m venv .venv
+    python3 -m venv .venv || err "Failed to create virtual environment"
 fi
+
+if [[ ! -f ".venv/bin/activate" ]]; then
+    err "Virtualenv activation script not found"
+fi
+
+# shellcheck disable=SC1091
 source .venv/bin/activate
 ok "Virtual environment activated"
 
-# 3. Install dependencies
-ok "Installing dependencies (this may take a few minutes)..."
-pip install --upgrade pip --quiet
-pip install -r requirements.txt --quiet
+# 3. Install core dependencies
+ok "Installing core dependencies (this may take a few minutes)..."
+python -m pip install --upgrade pip --quiet || err "Failed to upgrade pip"
+pip install -r requirements.txt --quiet || err "Failed to install requirements"
 ok "Core dependencies installed"
 
 # 4. spaCy model
 ok "Downloading spaCy language model..."
-python -m spacy download en_core_web_sm --quiet
+python -m spacy download en_core_web_sm --quiet || err "spaCy model download failed"
 ok "spaCy model ready"
 
 # 5. Optional: training deps
 echo ""
-read -rp "Install training dependencies (PyTorch + LoRA, ~3GB)? [y/N] " TRAIN
+TRAIN=${TRAIN:-}
+if [[ -z "$TRAIN" ]]; then
+    read -rp "Install training dependencies (PyTorch + LoRA, ~3GB)? [y/N] " TRAIN
+fi
+
 if [[ "$TRAIN" =~ ^[Yy]$ ]]; then
-    pip install -r requirements.txt --quiet
-    pip install ".[training]" --quiet
+    ok "Installing training dependencies..."
+    pip install ".[training]" --quiet || err "Training dependencies installation failed"
     ok "Training dependencies installed"
 else
     warn "Skipping training deps — modules will use external models only"
 fi
 
 # 6. Optional: voice deps
-read -rp "Install voice input dependencies (Whisper + pyttsx3)? [y/N] " VOICE
+VOICE=${VOICE:-}
+if [[ -z "$VOICE" ]]; then
+    read -rp "Install voice input dependencies (Whisper + pyttsx3)? [y/N] " VOICE
+fi
+
 if [[ "$VOICE" =~ ^[Yy]$ ]]; then
-    pip install ".[voice]" --quiet
+    ok "Installing voice dependencies..."
+    pip install ".[voice]" --quiet || err "Voice dependencies installation failed"
     ok "Voice dependencies installed"
+else
+    warn "Skipping voice dependencies"
 fi
 
 # 7. Check Ollama
 echo ""
-if command -v ollama &>/dev/null; then
+if command -v ollama >/dev/null; then
     ok "Ollama found: $(ollama --version 2>/dev/null || echo 'installed')"
-    # Check if at least one model is pulled
-    if ollama list 2>/dev/null | grep -q "mistral\|codestral\|llama"; then
+
+    if ollama list 2>/dev/null | grep -E '(^|\s)(mistral|codestral|llama)' >/dev/null; then
         ok "Ollama model(s) found ✓"
     else
-        warn "No Ollama models found. Pulling mistral (this will take a while)..."
-        ollama pull mistral
+        warn "No Ollama models found. Pulling mistral (this may take a while)..."
+        ollama pull mistral || err "Failed to pull mistral model"
         ok "mistral model ready"
     fi
 else
-    warn "Ollama not installed. OpenClaw needs Ollama for bootstrap stage."
+    warn "Ollama not installed. Required for local LLM execution."
     warn "Install from: https://ollama.ai"
     warn "Then run: ollama pull mistral && ollama pull codestral"
 fi
@@ -88,11 +117,12 @@ fi
 mkdir -p data/raw data/chunks data/evals
 ok "Data directories ready"
 
-# 9. Ensure __init__.py files exist
+# 9. Ensure Python package structure
 for d in core modules modules/coding modules/web_search modules/knowledge modules/system_ctrl modules/_template learning interface; do
-    touch "$d/__init__.py" 2>/dev/null || true
+    mkdir -p "$d"
+    touch "$d/__init__.py"
 done
-ok "Package init files ready"
+ok "Package structure ready"
 
 echo ""
 echo "  ╔═══════════════════════════════════════╗"
