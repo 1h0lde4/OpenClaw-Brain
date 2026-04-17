@@ -5,10 +5,10 @@
 **Local, self-learning AI brain for OpenClaw.**  
 Modular expert models that start on Ollama and gradually train their own weights — until they run fully independently.
 
-[![Version](https://img.shields.io/badge/version-2.0.0-1d9e75?style=flat-square)](https://github.com/YOUR_USERNAME/openclaw/releases)
+[![Version](https://img.shields.io/badge/version-2.0.0-1d9e75?style=flat-square)](https://github.com/1h0lde4/openclaw/releases)
 [![Python](https://img.shields.io/badge/python-3.11+-blue?style=flat-square)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-purple?style=flat-square)](LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/YOUR_USERNAME/openclaw/ci.yml?style=flat-square&label=CI)](https://github.com/YOUR_USERNAME/openclaw/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/1h0lde4/openclaw/ci.yml?style=flat-square&label=CI)](https://github.com/1h0lde4/openclaw/actions)
 
 </div>
 
@@ -18,22 +18,22 @@ Modular expert models that start on Ollama and gradually train their own weights
 
 **One-liner (Linux / macOS):**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/openclaw/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/1h0lde4/openclaw/main/install.sh | bash
 ```
 
 **pip from GitHub:**
 ```bash
-pip install git+https://github.com/YOUR_USERNAME/openclaw.git
+pip install git+https://github.com/1h0lde4/openclaw.git
 ```
 
 **pip specific release:**
 ```bash
-pip install https://github.com/YOUR_USERNAME/openclaw/archive/refs/tags/v2.0.0.tar.gz
+pip install https://github.com/1h0lde4/openclaw/archive/refs/tags/v2.0.0.tar.gz
 ```
 
 **Clone and run:**
 ```bash
-git clone https://github.com/YOUR_USERNAME/openclaw.git
+git clone https://github.com/1h0lde4/openclaw.git
 cd openclaw
 bash setup.sh          # installs deps + spaCy model + checks Ollama
 python main.py
@@ -186,7 +186,7 @@ openclaw/
 ## Contributing
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/openclaw.git
+git clone https://github.com/1h0lde4/openclaw.git
 cd openclaw
 pip install -e ".[dev]"
 pytest tests/
