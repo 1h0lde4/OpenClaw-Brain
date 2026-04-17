@@ -77,7 +77,7 @@ pip install tomli==2.0.1 tomli-w==1.0.0 watchdog==4.0.1 --quiet || {
 }
 
 # NLP packages (spaCy first, then others)
-pip install spacy==3.7.2 --quiet 2>/tmp/spacy_install.err || {
+pip install spacy==3.8.1 --quiet 2>/tmp/spacy_install.err || {
     err "Failed to install spaCy. $(cat /tmp/spacy_install.err)"
 }
 
@@ -86,12 +86,12 @@ pip install chromadb==0.4.24 sentence-transformers==3.0.1 --quiet || {
 }
 
 # Web crawler packages
-pip install trafilatura==1.9.0 lxml-html-clean==0.1.0 feedparser==6.0.11 --quiet || {
+pip install trafilatura==1.9.0 feedparser==6.0.11 --quiet || {
     err "Failed to install web crawler packages"
 }
 
 # Remaining packages
-pip install datasketch==1.6.4 pystray==0.19.5 Pillow==10.3.0 sqlalchemy==2.0.30 click==8.1.7 rich==13.7.1 requests==2.32.3 python-dotenv==1.0.1 --quiet || {
+pip install datasketch==1.6.4 pystray==0.19.5 Pillow==10.3.0 sqlalchemy==2.0.30 click==8.2.1 rich==13.7.1 requests==2.32.3 python-dotenv==1.0.1 --quiet || {
     err "Failed to install remaining packages"
 }
 

@@ -21,24 +21,24 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: fastapi>=0.111.0
-Requires-Dist: uvicorn[standard]>=0.30.1
-Requires-Dist: httpx>=0.27.0
-Requires-Dist: aiofiles>=23.2.1
-Requires-Dist: pydantic>=2.7.0
+Requires-Dist: fastapi==0.111.0
+Requires-Dist: uvicorn[standard]==0.30.1
+Requires-Dist: httpx==0.27.0
+Requires-Dist: aiofiles==23.2.1
+Requires-Dist: pydantic==2.7.0
 Requires-Dist: tomli>=2.0.1
 Requires-Dist: tomli-w>=1.0.0
 Requires-Dist: watchdog>=4.0.1
-Requires-Dist: spacy<4.0,>=3.7.0
-Requires-Dist: chromadb<1.0,>=0.4.0
-Requires-Dist: sentence-transformers<4.0,>=3.0.0
-Requires-Dist: trafilatura>=1.9.0
+Requires-Dist: spacy==3.8.1
+Requires-Dist: chromadb==0.4.24
+Requires-Dist: sentence-transformers==3.0.1
+Requires-Dist: trafilatura==1.9.0
 Requires-Dist: feedparser>=6.0.11
 Requires-Dist: datasketch>=1.6.4
 Requires-Dist: pystray>=0.19.5
 Requires-Dist: Pillow>=10.3.0
 Requires-Dist: sqlalchemy>=2.0.30
-Requires-Dist: click>=8.1.7
+Requires-Dist: click>=8.2.1
 Requires-Dist: rich>=13.7.1
 Requires-Dist: requests>=2.32.3
 Requires-Dist: python-dotenv>=1.0.1
@@ -70,10 +70,10 @@ Dynamic: license-file
 **Local, self-learning AI brain for OpenClaw.**  
 Modular expert models that start on Ollama and gradually train their own weights — until they run fully independently.
 
-[![Version](https://img.shields.io/badge/version-2.0.0-1d9e75?style=flat-square)](https://github.com/1h0lde4/openclaw/releases)
+[![Version](https://img.shields.io/badge/version-2.0.0-1d9e75?style=flat-square)](https://github.com/1h0lde4/OpenClaw-Brain/releases)
 [![Python](https://img.shields.io/badge/python-3.11+-blue?style=flat-square)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-purple?style=flat-square)](LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/1h0lde4/openclaw/ci.yml?style=flat-square&label=CI)](https://github.com/1h0lde4/openclaw/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/1h0lde4/OpenClaw-Brain/ci.yml?style=flat-square&label=CI)](https://github.com/1h0lde4/OpenClaw-Brain/actions)
 
 </div>
 
@@ -83,23 +83,23 @@ Modular expert models that start on Ollama and gradually train their own weights
 
 **One-liner (Linux / macOS):**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/1h0lde4/openclaw/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/1h0lde4/OpenClaw-Brain/main/install.sh | bash
 ```
 
 **pip from GitHub:**
 ```bash
-pip install git+https://github.com/1h0lde4/openclaw.git
+pip install git+https://github.com/1h0lde4/OpenClaw-Brain.git
 ```
 
 **pip specific release:**
 ```bash
-pip install https://github.com/1h0lde4/openclaw/archive/refs/tags/v2.0.0.tar.gz
+pip install https://github.com/1h0lde4/OpenClaw-Brain/archive/refs/tags/v2.0.0.tar.gz
 ```
 
 **Clone and run:**
 ```bash
-git clone https://github.com/1h0lde4/openclaw.git
-cd openclaw
+git clone https://github.com/1h0lde4/OpenClaw-Brain.git
+cd OpenClaw-Brain
 bash setup.sh          # installs deps + spaCy model + checks Ollama
 python main.py
 ```
