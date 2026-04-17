@@ -1,6 +1,6 @@
 [build-system]
 requires      = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name        = "openclaw-brain"
@@ -51,6 +51,7 @@ dependencies = [
     "click>=8.1.7",
     "rich>=13.7.1",
     "requests>=2.32.3",
+    "python-dotenv>=1.0.1",
 ]
 
 [project.optional-dependencies]

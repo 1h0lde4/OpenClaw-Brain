@@ -57,13 +57,26 @@ ok "Virtual environment activated"
 
 # 3. Install core dependencies
 ok "Installing core dependencies (this may take a few minutes)..."
-python -m pip install --upgrade pip --quiet || err "Failed to upgrade pip"
-pip install -r requirements.txt --quiet || err "Failed to install requirements"
+python -m pip install --upgrade pip --quiet 2>/tmp/pip_upgrade.err || {
+    err "Failed to upgrade pip. $(cat /tmp/pip_upgrade.err)"
+}
+pip install -r requirements.txt --quiet 2>/tmp/req_install.err || {
+    err "Failed to install requirements. $(cat /tmp/req_install.err)"
+}
 ok "Core dependencies installed"
+
+# 3b. Install the project itself (includes all core deps from pyproject.toml)
+ok "Installing OpenClaw Brain package..."
+pip install -e . --quiet 2>/tmp/pkg_install.err || {
+    err "Failed to install OpenClaw Brain package. $(cat /tmp/pkg_install.err)"
+}
+ok "OpenClaw Brain installed"
 
 # 4. spaCy model
 ok "Downloading spaCy language model..."
-python -m spacy download en_core_web_sm --quiet || err "spaCy model download failed"
+python -m spacy download en_core_web_sm --quiet 2>/tmp/spacy.err || {
+    err "spaCy model download failed. $(cat /tmp/spacy.err)"
+}
 ok "spaCy model ready"
 
 # 5. Optional: training deps
@@ -75,7 +88,9 @@ fi
 
 if [[ "$TRAIN" =~ ^[Yy]$ ]]; then
     ok "Installing training dependencies..."
-    pip install ".[training]" --quiet || err "Training dependencies installation failed"
+    pip install "openclaw-brain[training]" --quiet 2>/tmp/training.err || {
+        err "Training dependencies installation failed. $(cat /tmp/training.err)"
+    }
     ok "Training dependencies installed"
 else
     warn "Skipping training deps — modules will use external models only"
@@ -89,7 +104,9 @@ fi
 
 if [[ "$VOICE" =~ ^[Yy]$ ]]; then
     ok "Installing voice dependencies..."
-    pip install ".[voice]" --quiet || err "Voice dependencies installation failed"
+    pip install "openclaw-brain[voice]" --quiet 2>/tmp/voice.err || {
+        err "Voice dependencies installation failed. $(cat /tmp/voice.err)"
+    }
     ok "Voice dependencies installed"
 else
     warn "Skipping voice dependencies"
@@ -104,7 +121,9 @@ if command -v ollama >/dev/null; then
         ok "Ollama model(s) found ✓"
     else
         warn "No Ollama models found. Pulling mistral (this may take a while)..."
-        ollama pull mistral || err "Failed to pull mistral model"
+        if ! ollama pull mistral 2>/tmp/ollama.err; then
+            err "Failed to pull mistral model. $(cat /tmp/ollama.err)"
+        fi
         ok "mistral model ready"
     fi
 else
@@ -114,13 +133,13 @@ else
 fi
 
 # 8. Create data directories
-mkdir -p data/raw data/chunks data/evals
+mkdir -p data/raw data/chunks data/evals || err "Failed to create data directories"
 ok "Data directories ready"
 
 # 9. Ensure Python package structure
 for d in core modules modules/coding modules/web_search modules/knowledge modules/system_ctrl modules/_template learning interface; do
-    mkdir -p "$d"
-    touch "$d/__init__.py"
+    mkdir -p "$d" || err "Failed to create directory: $d"
+    touch "$d/__init__.py" || err "Failed to create __init__.py in: $d"
 done
 ok "Package structure ready"
 
