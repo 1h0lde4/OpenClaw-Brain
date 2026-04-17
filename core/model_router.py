@@ -5,6 +5,7 @@ Tracks maturity scores and triggers stage promotions.
 """
 import asyncio
 import time
+import uuid
 from dataclasses import dataclass
 from typing import Optional
 
@@ -50,13 +51,10 @@ class ModelRouter:
 
         elif stage == "shadow":
             # Run both models in parallel
-            ext_task = asyncio.create_task(
-                self._call_external(module_name, subtask, context)
+            ext_answer, own_answer = await asyncio.gather(
+                self._call_external(module_name, subtask, context),
+                self._call_own_model(module_name, subtask, context),
             )
-            own_task = asyncio.create_task(
-                self._call_own_model(module_name, subtask, context)
-            )
-            ext_answer, own_answer = await asyncio.gather(ext_task, own_task)
 
             similarity = _cosine_sim_text(ext_answer, own_answer)
             self._update_maturity(module_name, similarity)
@@ -135,7 +133,8 @@ class ModelRouter:
         out = Path(__file__).parent.parent / "data" / "raw" / module_name
         out.mkdir(parents=True, exist_ok=True)
         pair = {"query": query, "answer": answer, "timestamp": time.time()}
-        (out / f"{abs(hash(query + str(time.time())))}.json").write_text(
+        filename = f"{uuid.uuid4()}.json"
+        (out / filename).write_text(
             json.dumps(pair, ensure_ascii=False)
         )
 

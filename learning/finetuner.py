@@ -93,6 +93,7 @@ def train(module_name: str, data_path: Path) -> Path | None:
 
 def _count_lines(path: Path) -> int:
     try:
-        return sum(1 for _ in open(path))
+        with open(path) as f:
+            return sum(1 for _ in f)
     except Exception:
         return 0

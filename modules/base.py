@@ -60,12 +60,14 @@ class BaseModule(ABC):
 
     # ── Shared methods (inherited by all modules) ───────────────
 
-    async def run_routed(self, task: str, context, router) -> "RouteResult":
+    async def run_routed(self, task: str, context, router):
         """Called by dispatcher — delegates routing to model_router."""
         return await router.route(self.name, task, context)
 
     def retrieve(self, query: str, k: int = 5) -> list[str]:
         """Semantic search over this module's ChromaDB collection."""
+        import logging
+        log = logging.getLogger(__name__)
         try:
             results = self.db.query(
                 query_texts=[query],
@@ -86,7 +88,8 @@ class BaseModule(ABC):
                     continue
                 filtered.append(doc)
             return filtered
-        except Exception:
+        except Exception as e:
+            log.error(f"[{self.name}] Retrieved error: {e}")
             return []
 
     def ingest(self, chunks: list[str], metadatas: Optional[list[dict]] = None):

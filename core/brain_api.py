@@ -166,6 +166,8 @@ async def _stream_query(orchestrator, query: str) -> AsyncGenerator[str, None]:
     """
     try:
         answer = await orchestrator.handle(query)
+        if not answer:
+            answer = ""
         # Yield in ~50-char chunks to simulate streaming
         chunk_size = 50
         for i in range(0, len(answer), chunk_size):

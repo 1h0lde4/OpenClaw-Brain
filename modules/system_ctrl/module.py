@@ -4,6 +4,7 @@ LLM parses intent → structured action → safe OS call via allowlist.
 The LLM NEVER executes shell directly.
 """
 import json
+import logging
 import os
 import platform
 import subprocess
@@ -13,6 +14,8 @@ from pathlib import Path
 import httpx
 from modules.base import BaseModule, ModuleResult
 from core.config import config
+
+log = logging.getLogger(__name__)
 
 # ── Safe action allowlist ──────────────────────────────────────
 # Maps action names to OS-safe handler functions.
@@ -127,8 +130,8 @@ class Module(BaseModule):
                 end   = text.rfind("}") + 1
                 if start != -1 and end > start:
                     return json.loads(text[start:end])
-        except Exception:
-            pass
+        except Exception as e:
+            log.error(f"[system_ctrl] JSON parsing failed in _parse_intent: {e}")
         return {"action": "unknown", "raw": task}
 
     async def _parse_intent_own(self, task: str, context) -> dict:
@@ -153,8 +156,8 @@ class Module(BaseModule):
                 end   = text.rfind("}") + 1
                 if start != -1 and end > start:
                     return json.loads(text[start:end])
-        except Exception:
-            pass
+        except Exception as e:
+            log.error(f"[system_ctrl] JSON parsing failed in _parse_intent_own: {e}")
         return {"action": "unknown", "raw": task}
 
     def _execute(self, action: dict) -> str:

@@ -12,13 +12,15 @@ _tts_engine = None
 
 
 def _get_tts():
+    import logging
+    log = logging.getLogger(__name__)
     global _tts_engine
     if _tts_engine is None:
         try:
             import pyttsx3
             _tts_engine = pyttsx3.init()
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning(f"[voice] Failed to initialize TTS engine: {e}")
     return _tts_engine
 
 

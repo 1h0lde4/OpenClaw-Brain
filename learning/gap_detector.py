@@ -4,10 +4,13 @@ Analyses query logs + module scores to find weak topics,
 then queues targeted distillation jobs to fill those gaps.
 """
 import json
+import logging
 import re
 from collections import Counter
 from pathlib import Path
 from typing import Optional
+
+log = logging.getLogger(__name__)
 
 from core.config import config
 from core.event_bus import bus
@@ -62,7 +65,8 @@ def _detect_gaps(module_name: str) -> list[str]:
     for fpath in sorted(raw_dir.glob("*.json"))[-500:]:   # last 500 pairs
         try:
             data = json.loads(fpath.read_text())
-        except Exception:
+        except Exception as e:
+            log.warning(f"[gap_detector] Failed to parse {fpath.name}: {e}")
             continue
 
         query  = data.get("query", "")
