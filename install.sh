@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-GITHUB_REPO="YOUR_USERNAME/openclaw"
+GITHUB_REPO="1h0lde4/OpenClaw-Brain"
 GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_REPO}/main"
 GITHUB_API="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
 APT_REPO="https://YOUR_USERNAME.github.io/openclaw/apt"

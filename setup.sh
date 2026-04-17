@@ -45,6 +45,8 @@ ok "Python $PY ✓"
 if [[ ! -d ".venv" ]]; then
     ok "Creating virtual environment..."
     python3 -m venv .venv || err "Failed to create virtual environment"
+else
+    ok "Virtual environment already exists"
 fi
 
 if [[ ! -f ".venv/bin/activate" ]]; then
@@ -60,9 +62,39 @@ ok "Installing core dependencies (this may take a few minutes)..."
 python -m pip install --upgrade pip --quiet 2>/tmp/pip_upgrade.err || {
     err "Failed to upgrade pip. $(cat /tmp/pip_upgrade.err)"
 }
-pip install -r requirements.txt --quiet 2>/tmp/req_install.err || {
-    err "Failed to install requirements. $(cat /tmp/req_install.err)"
+
+# Install packages individually to avoid dependency conflicts
+ok "Installing packages individually to resolve conflicts..."
+
+# Core packages first
+pip install fastapi==0.111.0 uvicorn[standard]==0.30.1 httpx==0.27.0 aiofiles==23.2.1 pydantic==2.7.0 --quiet || {
+    err "Failed to install core packages"
 }
+
+# Config packages
+pip install tomli==2.0.1 tomli-w==1.0.0 watchdog==4.0.1 --quiet || {
+    err "Failed to install config packages"
+}
+
+# NLP packages (spaCy first, then others)
+pip install spacy==3.7.2 --quiet 2>/tmp/spacy_install.err || {
+    err "Failed to install spaCy. $(cat /tmp/spacy_install.err)"
+}
+
+pip install chromadb==0.4.24 sentence-transformers==3.0.1 --quiet || {
+    err "Failed to install vector/embedding packages"
+}
+
+# Web crawler packages
+pip install trafilatura==1.9.0 lxml-html-clean==0.1.0 feedparser==6.0.11 --quiet || {
+    err "Failed to install web crawler packages"
+}
+
+# Remaining packages
+pip install datasketch==1.6.4 pystray==0.19.5 Pillow==10.3.0 sqlalchemy==2.0.30 click==8.1.7 rich==13.7.1 requests==2.32.3 python-dotenv==1.0.1 --quiet || {
+    err "Failed to install remaining packages"
+}
+
 ok "Core dependencies installed"
 
 # 3b. Install the project itself (includes all core deps from pyproject.toml)
@@ -83,7 +115,12 @@ ok "spaCy model ready"
 echo ""
 TRAIN=${TRAIN:-}
 if [[ -z "$TRAIN" ]]; then
-    read -rp "Install training dependencies (PyTorch + LoRA, ~3GB)? [y/N] " TRAIN
+    if [[ -t 0 ]]; then
+        read -rp "Install training dependencies (PyTorch + LoRA, ~3GB)? [y/N] " TRAIN
+    else
+        warn "Non-interactive mode: skipping training dependencies (set TRAIN=y to install)"
+        TRAIN="n"
+    fi
 fi
 
 if [[ "$TRAIN" =~ ^[Yy]$ ]]; then
@@ -99,7 +136,12 @@ fi
 # 6. Optional: voice deps
 VOICE=${VOICE:-}
 if [[ -z "$VOICE" ]]; then
-    read -rp "Install voice input dependencies (Whisper + pyttsx3)? [y/N] " VOICE
+    if [[ -t 0 ]]; then
+        read -rp "Install voice input dependencies (Whisper + pyttsx3)? [y/N] " VOICE
+    else
+        warn "Non-interactive mode: skipping voice dependencies (set VOICE=y to install)"
+        VOICE="n"
+    fi
 fi
 
 if [[ "$VOICE" =~ ^[Yy]$ ]]; then
