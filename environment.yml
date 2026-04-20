@@ -1,0 +1,11 @@
+name: openclaw-Brain
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - fastapi
+      - uvicorn
+      - requests
+      - pydantic
