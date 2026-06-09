@@ -15,7 +15,7 @@ Usage:
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Any, Callable, Coroutine
+from typing import Callable
 
 log = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ class EventBus:
                 if asyncio.iscoroutinefunction(handler):
                     await handler(payload)
                 else:
-                    loop = asyncio.get_event_loop()
+                    loop = asyncio.get_running_loop()
                     await loop.run_in_executor(None, handler, payload)
             except Exception as e:
                 log.error(f"[event_bus] Handler error on '{event}': {e}")
@@ -89,11 +89,15 @@ class EventBus:
     def emit_sync(self, event: str, payload: dict = None):
         """Fire event from synchronous context (schedules on running loop)."""
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                loop.create_task(self.emit(event, payload or {}))
-            else:
-                loop.run_until_complete(self.emit(event, payload or {}))
+            loop = asyncio.get_running_loop()
+            # Running inside async context — schedule as task
+            loop.create_task(self.emit(event, payload or {}))
+        except RuntimeError:
+            # No running loop — we are in a sync context, run directly
+            try:
+                asyncio.run(self.emit(event, payload or {}))
+            except Exception as e:
+                log.error(f"[event_bus] emit_sync error on '{event}': {e}")
         except Exception as e:
             log.error(f"[event_bus] emit_sync error on '{event}': {e}")
 

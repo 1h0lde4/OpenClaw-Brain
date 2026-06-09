@@ -5,15 +5,13 @@ The LLM NEVER executes shell directly.
 """
 import json
 import logging
-import os
 import platform
 import subprocess
 import time
 from pathlib import Path
 
-import httpx
 from modules.base import BaseModule, ModuleResult
-from core.config import config
+from core.provider_mesh import resolve_provider, generate_with_fallback, graceful_generate_with_fallback
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +20,29 @@ log = logging.getLogger(__name__)
 # Anything NOT in this dict is rejected — no arbitrary execution.
 
 SYSTEM = platform.system()  # "Linux" | "Darwin" | "Windows"
+
+# V3.0.1 SECURITY: Sandbox root directory
+SAFE_ROOT = (Path.cwd() / "workspace").resolve()
+SAFE_ROOT.mkdir(exist_ok=True)
+
+
+def _safe_path(target: str) -> Path:
+    """Ensures the target path is strictly within the SAFE_ROOT sandbox."""
+    root = SAFE_ROOT.resolve()
+    # Resolve the target path relative to the root
+    p = Path(target).expanduser()
+    if p.is_absolute():
+        requested = p.resolve()
+    else:
+        requested = (root / p).resolve()
+
+    try:
+        # Check if the requested path is a child of the root
+        requested.relative_to(root)
+    except ValueError:
+        raise PermissionError(f"Access denied: {target} is outside workspace.")
+    
+    return requested
 
 
 def _open_app(target: str) -> str:
@@ -38,29 +59,35 @@ def _open_app(target: str) -> str:
 
 
 def _write_file(path: str, content: str = "") -> str:
-    p = Path(path).expanduser()
+    p = _safe_path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(content)
-    return f"File created: {p}"
+    return f"File created: {p.relative_to(SAFE_ROOT)}"
 
 
 def _read_file(path: str) -> str:
-    p = Path(path).expanduser()
+    try:
+        p = _safe_path(path)
+    except PermissionError as e:
+        return f"File not found or access denied: {path} ({e})"
     if not p.exists():
         return f"File not found: {path}"
     return p.read_text(errors="replace")[:4000]  # cap at 4k chars
 
 
 def _delete_file(path: str) -> str:
-    p = Path(path).expanduser()
+    try:
+        p = _safe_path(path)
+    except PermissionError as e:
+        return f"File not found or access denied: {path} ({e})"
     if not p.exists():
         return f"File not found: {path}"
     p.unlink()
-    return f"Deleted: {p}"
+    return f"Deleted: {p.relative_to(SAFE_ROOT)}"
 
 
 def _list_dir(path: str = ".") -> str:
-    p = Path(path).expanduser()
+    p = _safe_path(path)
     if not p.is_dir():
         return f"Not a directory: {path}"
     items = sorted(p.iterdir())
@@ -107,11 +134,9 @@ class Module(BaseModule):
         )
 
     async def _parse_intent(self, task: str, context) -> dict:
-        """LLM returns structured JSON, never shell strings."""
-        host  = config.get("global.ollama_host") or "http://localhost:11434"
-        state = config.get_module_state(self.name)
-        model = state.get("bootstrap_model", "mistral")
-        allowed = list(ACTION_HANDLERS.keys())
+        """LLM returns structured JSON via ProviderMesh."""
+        providers = resolve_provider(self.name)
+        allowed   = list(ACTION_HANDLERS.keys())
         prompt = (
             f"Parse the user request into a JSON action object.\n"
             f"Allowed actions: {allowed}\n"
@@ -120,45 +145,18 @@ class Module(BaseModule):
             f"User request: {task}\nJSON:"
         )
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(
-                    f"{host}/api/generate",
-                    json={"model": model, "prompt": prompt, "stream": False},
-                )
-                text  = resp.json().get("response", "{}")
-                start = text.find("{")
-                end   = text.rfind("}") + 1
-                if start != -1 and end > start:
-                    return json.loads(text[start:end])
+            text = await generate_with_fallback(providers, prompt)
+            start = text.find("{")
+            end   = text.rfind("}") + 1
+            if start != -1 and end > start:
+                return json.loads(text[start:end])
         except Exception as e:
-            log.error(f"[system_ctrl] JSON parsing failed in _parse_intent: {e}")
+            log.error(f"[system_ctrl] Intent parsing failed: {e}")
         return {"action": "unknown", "raw": task}
 
     async def _parse_intent_own(self, task: str, context) -> dict:
-        state = config.get_module_state(self.name)
-        model = state.get("own_model_tag") or state.get("bootstrap_model", "mistral")
-        host  = config.get("global.ollama_host") or "http://localhost:11434"
-        allowed = list(ACTION_HANDLERS.keys())
-        prompt = (
-            f"Parse the user request into a JSON action object.\n"
-            f"Allowed actions: {allowed}\n"
-            f"Return ONLY valid JSON.\n"
-            f"User request: {task}\nJSON:"
-        )
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(
-                    f"{host}/api/generate",
-                    json={"model": model, "prompt": prompt, "stream": False},
-                )
-                text  = resp.json().get("response", "{}")
-                start = text.find("{")
-                end   = text.rfind("}") + 1
-                if start != -1 and end > start:
-                    return json.loads(text[start:end])
-        except Exception as e:
-            log.error(f"[system_ctrl] JSON parsing failed in _parse_intent_own: {e}")
-        return {"action": "unknown", "raw": task}
+        # Same as external but uses own model if configured in resolve_provider (future)
+        return await self._parse_intent(task, context)
 
     def _execute(self, action: dict) -> str:
         name    = action.get("action", "unknown")

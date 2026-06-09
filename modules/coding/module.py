@@ -4,8 +4,6 @@ Handles code generation, debugging, and explanation tasks.
 """
 import ast
 import time
-import httpx
-from pathlib import Path
 
 from modules.base import BaseModule, ModuleResult
 from core.config import config
@@ -16,9 +14,15 @@ class Module(BaseModule):
 
     async def run(self, task: str, context) -> ModuleResult:
         t0     = time.monotonic()
+        # In V3.0.1, the Orchestrator handles routing via ModelRouter.
+        # This run() method is used when the module is called directly.
         chunks = self.retrieve(task, k=5)
         prompt = self._build_prompt(task, chunks, context)
-        answer = await self._call_external_raw(prompt)
+        
+        from core.provider_mesh import resolve_provider, generate_with_fallback, graceful_generate_with_fallback
+        providers = resolve_provider(self.name)
+        answer    = await generate_with_fallback(providers, prompt)
+        
         answer = self._validate_code(answer)
         self.save_training_pair(task, answer)
         return ModuleResult(
@@ -32,7 +36,13 @@ class Module(BaseModule):
         t0     = time.monotonic()
         chunks = self.retrieve(task, k=5)
         prompt = self._build_prompt(task, chunks, context)
-        answer = await self._call_own_raw(prompt)
+        
+        state = config.get_module_state(self.name)
+        model = state.get("own_model_tag") or state.get("bootstrap_model", "mistral")
+        from core.provider_mesh import OllamaProvider, generate_with_fallback
+        p = OllamaProvider(model=model)
+        answer = await generate_with_fallback([p], prompt)
+        
         answer = self._validate_code(answer)
         return ModuleResult(
             answer=answer,
@@ -69,30 +79,3 @@ class Module(BaseModule):
                 response += f"\n\n⚠️ Syntax note: {e}"
         return response
 
-    async def _call_external_raw(self, prompt: str) -> str:
-        state = config.get_module_state(self.name)
-        model = state.get("bootstrap_model", "codestral")
-        host  = config.get("global.ollama_host") or "http://localhost:11434"
-        try:
-            async with httpx.AsyncClient(timeout=90.0) as client:
-                resp = await client.post(
-                    f"{host}/api/generate",
-                    json={"model": model, "prompt": prompt, "stream": False},
-                )
-                return resp.json().get("response", "").strip()
-        except Exception as e:
-            return f"[Coding module error: {e}]"
-
-    async def _call_own_raw(self, prompt: str) -> str:
-        state = config.get_module_state(self.name)
-        model = state.get("own_model_tag") or state.get("bootstrap_model", "codestral")
-        host  = config.get("global.ollama_host") or "http://localhost:11434"
-        try:
-            async with httpx.AsyncClient(timeout=90.0) as client:
-                resp = await client.post(
-                    f"{host}/api/generate",
-                    json={"model": model, "prompt": prompt, "stream": False},
-                )
-                return resp.json().get("response", "").strip()
-        except Exception as e:
-            return f"[Coding own-model error: {e}]"

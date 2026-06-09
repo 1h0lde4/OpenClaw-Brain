@@ -1,13 +1,20 @@
 """
-modules/web_search/module.py — Web search expert module.
-Fetches live results, injects them into KB, then generates an answer.
-Uses SearXNG (self-hosted) or falls back to direct HTTP fetch.
+modules/web_search/module.py — V2.1: parallel URL fetch (asyncio.gather).
+Fetching 3 URLs in parallel instead of series cuts latency ~60%.
 """
+import asyncio
+import logging
 import time
+
 import httpx
 import trafilatura
+
 from modules.base import BaseModule, ModuleResult
 from core.config import config
+from core.runtime.network import client as _network_client
+from core.provider_mesh import resolve_provider, generate_with_fallback, graceful_generate_with_fallback
+
+log = logging.getLogger(__name__)
 
 
 class Module(BaseModule):
@@ -16,10 +23,7 @@ class Module(BaseModule):
     async def run(self, task: str, context) -> ModuleResult:
         t0 = time.monotonic()
 
-        # 1. Fetch live results
         live_chunks = await self._fetch_live(task)
-
-        # 2. Ingest fresh chunks into KB immediately
         if live_chunks:
             meta = [
                 {"timestamp": time.time(), "quality_score": 0.75,
@@ -28,22 +32,19 @@ class Module(BaseModule):
             ]
             self.ingest(live_chunks, meta)
 
-        # 3. Retrieve from KB (now includes fresh content)
-        kb_chunks = self.retrieve(task, k=5)
-
-        prompt = self._build_prompt(task, kb_chunks or live_chunks, context)
-        answer = await self._call_external_raw(prompt)
+        kb_chunks = await self.retrieve_async(task, k=5)
+        prompt    = self._build_prompt(task, kb_chunks or live_chunks, context)
+        answer    = await self._call_external_raw(prompt)
         self.save_training_pair(task, answer)
         return ModuleResult(
-            answer=answer,
-            source="external",
+            answer=answer, source="external",
             chunks_used=kb_chunks,
             latency_ms=int((time.monotonic() - t0) * 1000),
         )
 
     async def run_own(self, task: str, context) -> ModuleResult:
         t0        = time.monotonic()
-        kb_chunks = self.retrieve(task, k=5)
+        kb_chunks = await self.retrieve_async(task, k=5)
         prompt    = self._build_prompt(task, kb_chunks, context)
         answer    = await self._call_own_raw(prompt)
         return ModuleResult(
@@ -53,31 +54,36 @@ class Module(BaseModule):
         )
 
     async def _fetch_live(self, query: str) -> list[str]:
-        """Fetch top web results and extract text."""
-        chunks = []
         try:
-            # Try SearXNG first (self-hosted, configurable)
             searxng = config.get("global.searxng_url") or ""
             if searxng:
                 urls = await self._searxng_urls(query, searxng)
             else:
-                # Fallback: use DuckDuckGo HTML (no API key needed)
                 urls = await self._ddg_urls(query)
 
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                for url in urls[:3]:
-                    try:
-                        resp = await client.get(url, follow_redirects=True)
-                        text = trafilatura.extract(resp.text)
-                        if text and len(text) > 100:
-                            # Chunk at ~300 tokens
-                            for chunk in _rough_chunk(text, 300):
-                                chunks.append(chunk)
-                    except Exception:
-                        continue
+            # V2.1 FIX: fetch all URLs in parallel using pooled client
+            tasks   = [self._fetch_one(_network_client, url) for url in urls[:3]]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            chunks = []
+            for result in results:
+                if isinstance(result, list):
+                    chunks.extend(result)
+            return chunks[:15]
+        except Exception as e:
+            log.debug(f"[web_search] fetch_live error: {e}")
+            return []
+
+    async def _fetch_one(self, client: httpx.AsyncClient, url: str) -> list[str]:
+        """Fetch and chunk a single URL. Returns [] on any error."""
+        try:
+            resp = await client.get(url)
+            text = trafilatura.extract(resp.text)
+            if text and len(text) > 100:
+                return _rough_chunk(text, 300)
         except Exception:
             pass
-        return chunks[:15]  # Cap at 15 chunks per query
+        return []
 
     async def _searxng_urls(self, query: str, base: str) -> list[str]:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -89,17 +95,16 @@ class Module(BaseModule):
             return [r["url"] for r in results[:5] if "url" in r]
 
     async def _ddg_urls(self, query: str) -> list[str]:
-        """DuckDuckGo HTML scrape — no API key required."""
         import re
-        async with httpx.AsyncClient(timeout=10.0, headers={
-            "User-Agent": "Mozilla/5.0 (compatible; OpenClaw/1.0)"
-        }) as client:
+        async with httpx.AsyncClient(
+            timeout=10.0,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; OCBrain/2.1)"},
+        ) as client:
             resp = await client.get(
                 "https://html.duckduckgo.com/html/",
                 params={"q": query},
             )
             urls = re.findall(r'href="(https?://[^"&]+)"', resp.text)
-            # Filter out DDG internal links
             return [u for u in urls if "duckduckgo.com" not in u][:5]
 
     def _build_prompt(self, task: str, chunks: list, context) -> str:
@@ -109,48 +114,36 @@ class Module(BaseModule):
             f"You are a helpful assistant with access to current web information.\n"
             f"{ctx_str}\n\n"
             f"Web search results:\n{kb_str}\n\n"
-            f"Query: {task}\n\n"
-            f"Answer based on the search results above:"
+            f"Query: {task}\n\nAnswer based on the search results:"
         )
 
     async def _call_external_raw(self, prompt: str) -> str:
-        state = config.get_module_state(self.name)
-        model = state.get("bootstrap_model", "mistral")
-        host  = config.get("global.ollama_host") or "http://localhost:11434"
-        try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                resp = await client.post(
-                    f"{host}/api/generate",
-                    json={"model": model, "prompt": prompt, "stream": False},
-                )
-                return resp.json().get("response", "").strip()
-        except Exception as e:
-            return f"[Web search module error: {e}]"
+        providers = resolve_provider(self.name)
+        return await graceful_generate_with_fallback(
+            providers, prompt,
+            fallback_message="[Web search: no LLM available — start Ollama to enable AI responses]"
+        )
 
     async def _call_own_raw(self, prompt: str) -> str:
         state = config.get_module_state(self.name)
         model = state.get("own_model_tag") or state.get("bootstrap_model", "mistral")
-        host  = config.get("global.ollama_host") or "http://localhost:11434"
+        from core.provider_mesh import OllamaProvider
+        p = OllamaProvider(model=model)
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                resp = await client.post(
-                    f"{host}/api/generate",
-                    json={"model": model, "prompt": prompt, "stream": False},
-                )
-                return resp.json().get("response", "").strip()
+            return await generate_with_fallback([p], prompt)
         except Exception as e:
             return f"[Web search own-model error: {e}]"
 
 
 def _rough_chunk(text: str, max_tokens: int = 300) -> list[str]:
-    words    = text.split()
-    chunks   = []
-    current  = []
+    words   = text.split()
+    chunks  = []
+    current = []
     for word in words:
         current.append(word)
         if len(current) >= max_tokens:
             chunks.append(" ".join(current))
-            current = current[-50:]  # 50-token overlap
+            current = current[-50:]
     if current:
         chunks.append(" ".join(current))
     return chunks

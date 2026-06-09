@@ -4,7 +4,7 @@ This is the stable interface OpenClaw components use to talk to the brain.
 Wraps the FastAPI app with a clear contract layer.
 
 Versions:
-  v1 — initial API (V1 of openclaw-brain)
+  v1 — initial API (V1 of ocbrain)
   v2 — adds streaming, events, distillation, export/import (this file)
 """
 from fastapi import APIRouter
@@ -14,7 +14,7 @@ from typing import Optional, AsyncGenerator
 import asyncio
 import json
 
-BRAIN_API_VERSION = "2.0.0"
+BRAIN_API_VERSION = "2.1.0"
 
 router = APIRouter(prefix="/brain/v2", tags=["Brain API v2"])
 

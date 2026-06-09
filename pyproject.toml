@@ -3,20 +3,20 @@ requires      = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name        = "openclaw-brain"
+name        = "ocbrain"
 version     = "2.0.0"
-description = "OpenClaw Brain — local self-learning AI with modular expert models"
+description = "OCBrain — local self-learning AI with modular expert models"
 readme      = "README.md"
 license     = { text = "MIT" }
 requires-python = ">=3.11"
 
 authors = [
-    { name = "OpenClaw", email = "hello@openclaw.io" }
+    { name = "OCBrain", email = "hello@ocbrain.io" }
 ]
 
 keywords = [
     "ai", "llm", "local", "self-learning", "ollama",
-    "rag", "lora", "assistant", "openclaw"
+    "rag", "lora", "assistant", "ocbrain"
 ]
 
 classifiers = [
@@ -31,24 +31,28 @@ classifiers = [
 ]
 
 dependencies = [
-    "fastapi==0.111.0",
-    "uvicorn[standard]==0.30.1",
-    "httpx==0.27.0",
-    "aiofiles==23.2.1",
-    "pydantic==2.7.0",
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.30.1",
+    "httpx>=0.27.0",
+    "aiohttp>=3.9.0",
+    "aiofiles>=23.2.1",
+    "pydantic>=2.7.0",
     "tomli>=2.0.1",
     "tomli-w>=1.0.0",
+    "PyYAML>=6.0.1",
     "watchdog>=4.0.1",
-    "spacy==3.8.1",
-    "chromadb==0.4.24",
-    "sentence-transformers==3.0.1",
-    "trafilatura==1.9.0",
+    "spacy>=3.7.0,<4.0",
+    "chromadb>=0.4.0,<1.0",
+    "sentence-transformers>=3.0.0,<4.0",
+    "scipy>=1.11.0",
+    "beautifulsoup4>=4.12.0",
+    "trafilatura>=1.9.0",
     "feedparser>=6.0.11",
     "datasketch>=1.6.4",
     "pystray>=0.19.5",
     "Pillow>=10.3.0",
     "sqlalchemy>=2.0.30",
-    "click>=8.2.1",
+    "click>=8.1.7",
     "rich>=13.7.1",
     "requests>=2.32.3",
     "python-dotenv>=1.0.1",
@@ -73,22 +77,23 @@ voice = [
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
+    "pytest-mock>=3.10.0",
     "pyinstaller>=6.0.0",
 ]
 all = [
-    "openclaw-brain[training,voice]",
+    "ocbrain[training,voice]",
 ]
 
 [project.scripts]
-openclaw       = "interface.cli:cli"
-openclaw-start = "main:main"
+ocbrain       = "interface.cli:cli"
+ocbrain-start = "main:main"
 
 [project.urls]
-Homepage      = "https://github.com/1h0lde4/OpenClaw-Brain"
-Repository    = "https://github.com/1h0lde4/OpenClaw-Brain"
-Issues        = "https://github.com/1h0lde4/OpenClaw-Brain/issues"
-Releases      = "https://github.com/1h0lde4/OpenClaw-Brain/releases"
-Documentation = "https://github.com/1h0lde4/openclaw#readme"
+Homepage      = "https://github.com/1h0lde4/OCBrain"
+Repository    = "https://github.com/1h0lde4/OCBrain"
+Issues        = "https://github.com/1h0lde4/OCBrain/issues"
+Releases      = "https://github.com/1h0lde4/OCBrain/releases"
+Documentation = "https://github.com/1h0lde4/OCBrain#readme"
 
 [tool.setuptools.packages.find]
 where   = ["."]

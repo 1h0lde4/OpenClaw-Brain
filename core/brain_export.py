@@ -23,6 +23,13 @@ DATA    = ROOT / "data"
 EXPORTS = ROOT / "data" / "exports"
 
 
+def _safe_read(path: Path, default: str) -> str:
+    try:
+        return path.read_text(encoding="utf-8").strip() or default
+    except OSError:
+        return default
+
+
 def export_module(module_name: str, output_path: Optional[Path] = None) -> Path:
     """
     Export a module's brain to a .ocbrain bundle.
@@ -52,7 +59,7 @@ def export_module(module_name: str, output_path: Optional[Path] = None) -> Path:
         "training_pairs":  brain_info.get("total_training_pairs", 0),
         "kb_chunks":       brain_info.get("total_kb_chunks", 0),
         "exported_at":     time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "app_version":     (ROOT / "version.txt").read_text().strip(),
+        "app_version":     _safe_read(ROOT / "version.txt", "0.0.0"),
     }
 
     with tempfile.TemporaryDirectory() as tmp:
